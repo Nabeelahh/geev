@@ -33,28 +33,30 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/geev_build
       JWT_SECRET: build-secret-key-for-ci
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: http://localhost:3000
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: app/package-lock.json
+          cache: 'pnpm'
 
       - name: Create .env file for CI
         run: |
           echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/geev_build" > .env
           echo "JWT_SECRET=build-secret-key-for-ci" >> .env
           echo "NODE_ENV=production" >> .env
-          echo "NEXT_PUBLIC_API_URL=http://localhost:3000" >> .env
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --no-frozen-lockfile
 
       - name: Generate Prisma Client
         run: npx prisma generate
@@ -66,12 +68,10 @@ jobs:
         run: npx prisma db seed
 
       - name: Lint codebase
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Build application
-        run: npm run build
-        env:
-          NEXT_PUBLIC_API_URL: http://localhost:3000
+        run: pnpm run build
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -81,7 +81,6 @@ jobs:
           path: app/.next
           retention-days: 7
 
-  # Optional: Deploy job (configure based on your hosting platform)
   deploy:
     needs: build
     runs-on: ubuntu-latest
