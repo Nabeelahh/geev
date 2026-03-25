@@ -42,6 +42,12 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Create .env file for CI
+        run: |
+          echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/geev_test" > .env
+          echo "JWT_SECRET=test-secret-key" >> .env
+          echo "NODE_ENV=test" >> .env
+
       - name: Install dependencies
         run: |
           if [ -e yarn.lock ]; then
