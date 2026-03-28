@@ -7,7 +7,7 @@ use crate::types::{DataKey, HelpRequest, HelpRequestStatus};
 use soroban_sdk::symbol_short;
 use soroban_sdk::{
     testutils::{Address as _, Events as _, Ledger},
-    token, Address, Env, IntoVal, String, Symbol,
+    token, vec, Address, Env, IntoVal, String,
 };
 
 #[test]
@@ -348,9 +348,14 @@ fn test_donation_emits_contributor_tracking_event() {
     contract_client.donate(&donor, &request_id, &donation);
 
     let events = env.events().all();
+    let expected_topics = vec![
+        &env,
+        symbol_short!("aid"),
+        symbol_short!("donate"),
+        request_id.into_val(&env),
+    ];
     assert!(events.iter().any(|(event_contract, topics, _data)| {
-        event_contract == contract_id
-            && topics == (Symbol::new(&env, "donation_received"),).into_val(&env)
+        event_contract == contract_id && topics == expected_topics.into_val(&env)
     }));
 }
 
