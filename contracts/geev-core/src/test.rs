@@ -1398,3 +1398,115 @@ fn test_flag_counts_are_independent_per_id() {
     assert_eq!(client.get_flag_count(&2u64), 0);
     assert_eq!(client.get_flag_count(&1u64), 1);
 }
+
+// ── reputation tests ──────────────────────────────────────────────────────────
+
+#[test]
+fn test_reputation_starts_at_zero() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(ProfileContract, ());
+    let client = ProfileContractClient::new(&env, &contract_id);
+
+    let user = Address::generate(&env);
+    assert_eq!(client.get_reputation(&user), 0);
+}
+
+#[test]
+fn test_reputation_increments_after_distribute_prize() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(GiveawayContract, ());
+    let client = GiveawayContractClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let mock_token = env
+        .register_stellar_asset_contract_v2(token_admin.clone())
+        .address();
+    let token_admin_client = token::StellarAssetClient::new(&env, &mock_token);
+
+    let creator = Address::generate(&env);
+    let participant = Address::generate(&env);
+    token_admin_client.mint(&creator, &1000);
+
+    env.as_contract(&contract_id, || {
+        env.storage()
+            .instance()
+            .set(&DataKey::AllowedToken(mock_token.clone()), &true);
+    });
+
+    let giveaway_id = client.create_giveaway(
+        &creator,
+        &mock_token,
+        &500,
+        &String::from_str(&env, "Rep Test"),
+        &60,
+    );
+
+    client.enter_giveaway(&participant, &giveaway_id);
+
+    env.ledger().with_mut(|li| li.timestamp += 100);
+    client.pick_winner(&giveaway_id);
+    client.distribute_prize(&giveaway_id);
+
+    // Creator's reputation should now be 1.
+    env.as_contract(&contract_id, || {
+        let score: u64 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Reputation(creator.clone()))
+            .unwrap_or(0);
+        assert_eq!(score, 1);
+    });
+}
+
+#[test]
+fn test_reputation_accumulates_across_giveaways() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(GiveawayContract, ());
+    let client = GiveawayContractClient::new(&env, &contract_id);
+
+    let token_admin = Address::generate(&env);
+    let mock_token = env
+        .register_stellar_asset_contract_v2(token_admin.clone())
+        .address();
+    let token_admin_client = token::StellarAssetClient::new(&env, &mock_token);
+
+    let creator = Address::generate(&env);
+    let participant = Address::generate(&env);
+    token_admin_client.mint(&creator, &2000);
+
+    env.as_contract(&contract_id, || {
+        env.storage()
+            .instance()
+            .set(&DataKey::AllowedToken(mock_token.clone()), &true);
+    });
+
+    // Complete two giveaways with the same creator.
+    for _ in 0..2u32 {
+        let giveaway_id = client.create_giveaway(
+            &creator,
+            &mock_token,
+            &500,
+            &String::from_str(&env, "Rep Test"),
+            &60,
+        );
+        client.enter_giveaway(&participant, &giveaway_id);
+        env.ledger().with_mut(|li| li.timestamp += 100);
+        client.pick_winner(&giveaway_id);
+        client.distribute_prize(&giveaway_id);
+    }
+
+    env.as_contract(&contract_id, || {
+        let score: u64 = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Reputation(creator.clone()))
+            .unwrap_or(0);
+        assert_eq!(score, 2);
+    });
+}
