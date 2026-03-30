@@ -1,6 +1,7 @@
 use crate::access::check_admin;
 use crate::admin::{AdminContract, AdminContractClient};
 use crate::giveaway::{GiveawayContract, GiveawayContractClient};
+use crate::governance::{GovernanceContract, GovernanceContractClient};
 use crate::mutual_aid::{MutualAidContract, MutualAidContractClient};
 use crate::profile::{ProfileContract, ProfileContractClient};
 use crate::types::{DataKey, HelpRequest, HelpRequestStatus};
@@ -9,7 +10,6 @@ use soroban_sdk::{
     testutils::{Address as _, Events as _, Ledger},
     token, vec, Address, Env, FromVal, IntoVal, String, Val,
 };
-use crate::governance::{GovernanceContract, GovernanceContractClient};
 
 #[test]
 fn test_giveaway_flow() {
