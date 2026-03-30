@@ -1,5 +1,5 @@
-use crate::types::{DataKey, Error, GiveawayStatus, HelpRequestStatus};
 use soroban_sdk::{contract, contractevent, contractimpl, Address, Env};
+use crate::types::{DataKey, Error, GiveawayStatus, HelpRequestStatus};
 
 /// Number of flags required to automatically suspend content.
 pub const FLAG_THRESHOLD: u32 = 10;
@@ -26,25 +26,26 @@ pub struct ContentAutoSuspended {
 impl GovernanceContract {
     /// Flag a piece of content (Giveaway or HelpRequest) by its ID.
     /// Each user may only flag a given ID once.
-    /// When the flag count reaches FLAG_THRESHOLD the item is automatically suspended.
     pub fn flag_content(env: Env, user: Address, target_id: u64) -> Result<(), Error> {
-        // 1. Verify caller signature.
+        // 1. Verify caller signature
         user.require_auth();
 
-        // 2. Prevent duplicate flags from the same user.
+        // 2. Prevent duplicate flags from the same user
         let flag_key = DataKey::FlagRecord(target_id, user.clone());
         if env.storage().persistent().has(&flag_key) {
             return Err(Error::AlreadyFlagged);
         }
+
+        // 3. Record that this user has flagged this ID
         env.storage().persistent().set(&flag_key, &true);
 
-        // 3. Increment the total flag count for this ID.
+        // 4. Increment the total flag count for this ID
         let count_key = DataKey::FlagCount(target_id);
         let current: u32 = env.storage().persistent().get(&count_key).unwrap_or(0);
         let new_count = current.checked_add(1).ok_or(Error::ArithmeticOverflow)?;
         env.storage().persistent().set(&count_key, &new_count);
 
-        // 4. Emit ContentFlagged.
+        // 5. Emit "ContentFlagged" event: topics = (name, target_id), data = (user, total_flags)
         ContentFlagged {
             target_id,
             user,
