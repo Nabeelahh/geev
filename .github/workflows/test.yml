@@ -70,7 +70,11 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/geev_test
           JWT_SECRET: test-secret-key
           NODE_ENV: test
-        run: pnpm run test:ci
+        run: |
+          echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/geev_test" > .env
+          echo "JWT_SECRET=test-secret-key" >> .env
+          echo "NODE_ENV=test" >> .env
+          pnpm run test:ci
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v3
